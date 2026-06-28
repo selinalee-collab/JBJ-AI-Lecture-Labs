@@ -15,12 +15,14 @@ description: "Use this skill when the user asks for '종목 여론 조회', '여
 
 ## Step 0 — 환경 점검 및 자동 설치
 
-**가장 먼저 수행한다.** PowerShell에서 아래 두 줄을 실행한다.
+**가장 먼저 수행한다.** PowerShell에서 아래 두 줄을 순서대로 실행한다.
 
 ```powershell
-python -m pip install --quiet playwright openpyxl
-python -m playwright install chromium --quiet
+python -m pip install playwright openpyxl
+python -m playwright install chromium
 ```
+
+> `python` 명령이 없으면 `python3`으로 대체한다. Mac/Linux 사용자는 `python3` 및 `python3 -m pip`을 사용한다.
 
 설치 확인:
 
@@ -30,7 +32,7 @@ python -c "from playwright.sync_api import sync_playwright; import openpyxl; pri
 
 출력이 `환경 OK`이면 Step 1로 진행한다. 오류가 발생하면 오류 메시지를 확인하고 재설치한다.
 
-> **최초 실행 시** chromium 다운로드로 1~2분 소요된다. 이미 설치된 경우 수 초 내 완료된다.
+> **최초 실행 시** Chromium 다운로드로 1~2분 소요된다. 이미 설치된 환경에서는 수 초 내 완료된다.
 
 ---
 
@@ -70,19 +72,19 @@ https://finance.naver.com/search/searchList.naver?query={기업명}
 
 ### 스크래핑 스크립트 템플릿
 
-스크래치패드 경로: `{scratchpad}/scrape_{ticker}.py`  
-출력 JSON 경로: `{scratchpad}/{ticker}_posts.json`
+스크립트는 Claude Code의 스크래치패드에 `scrape_{ticker}.py`로 저장한다.  
+출력 JSON은 **Python 표준 임시 디렉토리**(`tempfile.gettempdir()`)에 자동 저장된다 — 경로를 하드코딩하지 않는다.
 
 ```python
 # -*- coding: utf-8 -*-
-import asyncio, json, html, sys
+import asyncio, json, html, sys, os, tempfile
 
-# ── 설정 ──────────────────────────────────
+# ── 설정 (종목마다 이 두 줄만 변경) ──────────
 STOCK_CODE  = "000660"        # 종목코드 (6자리)
 COMPANY     = "SK하이닉스"    # 기업명
-TOTAL_PAGES = 5               # 수집 페이지 수 (페이지당 20건)
-OUTPUT_JSON = r"{scratchpad}\{ticker}_posts.json"
 # ──────────────────────────────────────────
+TOTAL_PAGES = 5               # 수집 페이지 수 (페이지당 20건)
+OUTPUT_JSON = os.path.join(tempfile.gettempdir(), f"{STOCK_CODE}_posts.json")
 
 JS_EXTRACT = """
 () => {
@@ -153,12 +155,12 @@ for item in posts[:5]:
 ### 실행
 
 ```powershell
-python "{scratchpad}\scrape_{ticker}.py"
+python "{스크래치패드 절대경로}\scrape_{ticker}.py"
 ```
 
 ### 수집 결과 확인
 
-실행 후 JSON 파일을 Read 도구로 읽어 100개 제목 전체를 컨텍스트에 로드한다.
+스크립트 출력 마지막 줄에 JSON 저장 경로가 출력된다. 그 경로를 Read 도구로 읽어 100개 제목 전체를 컨텍스트에 로드한다.
 
 ---
 
@@ -198,18 +200,21 @@ JSON에서 읽은 100개 제목 전체를 한 번에 분석한다.
 
 ```
 파일명: {기업명}_여론분석_{YYYYMMDD}.xlsx
-저장처: C:\Users\JBJ\JBJ-AI-Lecture-Labs\M07_skill\
+저장처: 스크립트 실행 시점의 현재 작업 디렉토리 (os.getcwd())
 ```
+
+> 저장 위치를 지정하고 싶으면 `OUTPUT_DIR`만 변경한다. 기본값은 `os.getcwd()`로 누구에게나 동작한다.
 
 ### Excel 생성 스크립트 작성 원칙
 
 1. **설정 블록** (스크립트 최상단):
    ```python
+   import os
    COMPANY_NAME = "SK하이닉스"
    STOCK_CODE   = "000660"
    EXCHANGE     = "유가증권시장(KOSPI)"
    COLLECT_DATE = "2026-06-28"
-   OUTPUT_DIR   = r"C:\Users\JBJ\JBJ-AI-Lecture-Labs\M07_skill"
+   OUTPUT_DIR   = os.getcwd()          # 현재 작업 디렉토리 (경로 하드코딩 금지)
    OUTPUT_FILE  = f"{COMPANY_NAME}_여론분석_{YYYYMMDD}.xlsx"
    ```
 
@@ -237,7 +242,7 @@ JSON에서 읽은 100개 제목 전체를 한 번에 분석한다.
 5. **이모지·특수문자 print 금지** — Windows cp949 인코딩 오류 방지  
    성공 메시지: `print("[완료] 파일 저장:", os.path.abspath(out_path))`
 
-6. 실행: `python "{scratchpad}\gen_{ticker}_excel.py"`
+6. 실행: `python "{스크래치패드 절대경로}\gen_{ticker}_excel.py"`
 
 ---
 
@@ -356,3 +361,6 @@ JSON에서 읽은 100개 제목 전체를 한 번에 분석한다.
 - 감성 분석은 **제목 텍스트만** 기준으로 한다 (본문 미참조).
 - 동일 날짜·종목 재조회 시 파일명에 `_2`, `_3` suffix를 붙여 덮어쓰기를 방지한다.
 - claude-in-chrome MCP는 `finance.naver.com` 차단으로 사용 불가 — **Playwright Python만 사용한다.**
+- 스크립트 경로는 절대로 하드코딩하지 않는다. JSON 임시 파일은 `tempfile.gettempdir()`, Excel 출력은 `os.getcwd()`를 기본값으로 사용한다.
+- Windows에서 `python` 명령이 없으면 `py` 또는 `python3`을 시도한다. Mac/Linux는 `python3`을 사용한다.
+- `playwright install chromium`에 `--quiet` 플래그를 붙이지 않는다 (지원하지 않음).
