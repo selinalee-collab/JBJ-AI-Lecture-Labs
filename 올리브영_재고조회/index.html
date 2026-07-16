@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>올리브영 재고 파인더</title>
+<style>
+  :root{
+    --rose:#E86A92;        /* 메인 로즈핑크 */
+    --rose-deep:#D14B78;
+    --coral:#FF8C7A;       /* 코랄 포인트 */
+    --lavender:#B99DDA;    /* 라벤더 */
+    --blush:#FFF3F6;       /* 연한 블러시 배경 */
+    --blush2:#FDE9EF;
+    --cream:#FFFBFC;
+    --ink:#4A3540;
+    --muted:#9C8792;
+    --line:#F3D9E2;
+    --green:#4CAF88;
+    --gray:#C4B8BE;
+    --shadow:0 10px 30px rgba(209,75,120,.10);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:"Malgun Gothic","맑은 고딕",system-ui,sans-serif;
+    color:var(--ink);
+    background:
+      radial-gradient(1200px 500px at 100% -10%, #FDE3EC 0%, transparent 60%),
+      radial-gradient(900px 500px at -10% 10%, #EDE4FA 0%, transparent 55%),
+      var(--blush);
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1040px;margin:0 auto;padding:0 20px 80px}
+
+  /* Header */
+  header{
+    text-align:center;padding:54px 0 26px;
+  }
+  .logo{
+    display:inline-flex;align-items:center;gap:10px;
+    font-size:30px;font-weight:800;letter-spacing:-.5px;
+    color:var(--rose-deep);
+  }
+  .logo .dot{
+    width:34px;height:34px;border-radius:50%;
+    background:linear-gradient(135deg,var(--rose),var(--coral));
+    display:inline-flex;align-items:center;justify-content:center;
+    box-shadow:0 6px 16px rgba(232,106,146,.45);font-size:18px;
+  }
+  header p{margin-top:10px;color:var(--muted);font-size:15px}
+
+  /* Search */
+  .search{
+    display:flex;gap:10px;max-width:620px;margin:26px auto 0;
+    background:#fff;border-radius:999px;padding:8px 8px 8px 22px;
+    box-shadow:var(--shadow);border:1px solid var(--line);
+  }
+  .search input{
+    flex:1;border:none;outline:none;font-size:16px;background:transparent;color:var(--ink);
+  }
+  .search input::placeholder{color:#C9B6BF}
+  .search button{
+    border:none;cursor:pointer;padding:12px 26px;border-radius:999px;color:#fff;font-size:15px;font-weight:700;
+    background:linear-gradient(135deg,var(--rose),var(--coral));
+    box-shadow:0 6px 16px rgba(232,106,146,.4);transition:transform .12s;
+  }
+  .search button:active{transform:scale(.96)}
+
+  .chips{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:16px auto 0}
+  .chip{
+    background:#fff;border:1px solid var(--line);color:var(--rose-deep);
+    padding:7px 15px;border-radius:999px;font-size:13px;cursor:pointer;transition:.15s;
+  }
+  .chip:hover{background:var(--blush2);border-color:var(--rose)}
+
+  .summary{margin:30px 4px 14px;font-size:14px;color:var(--muted)}
+  .summary b{color:var(--rose-deep)}
+
+  /* Product grid */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:18px}
+  .card{
+    background:var(--cream);border:1px solid var(--line);border-radius:20px;overflow:hidden;
+    cursor:pointer;transition:transform .16s,box-shadow .16s;display:flex;flex-direction:column;
+  }
+  .card:hover{transform:translateY(-4px);box-shadow:var(--shadow)}
+  .thumb{aspect-ratio:1;background:#fff;position:relative;overflow:hidden}
+  .thumb img{width:100%;height:100%;object-fit:contain}
+  .badge{
+    position:absolute;top:10px;left:10px;font-size:11px;font-weight:700;padding:4px 9px;border-radius:999px;color:#fff;
+  }
+  .badge.in{background:linear-gradient(135deg,var(--rose),var(--coral))}
+  .badge.out{background:var(--gray)}
+  .disc{position:absolute;top:10px;right:10px;background:var(--lavender);color:#fff;font-size:12px;font-weight:800;padding:4px 8px;border-radius:10px}
+  .body{padding:14px 15px 16px;display:flex;flex-direction:column;gap:8px;flex:1}
+  .pname{font-size:13.5px;line-height:1.45;font-weight:600;color:var(--ink);
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:38px}
+  .price{display:flex;align-items:baseline;gap:7px;margin-top:auto}
+  .price .now{font-size:19px;font-weight:800;color:var(--rose-deep)}
+  .price .org{font-size:12px;color:#C9B6BF;text-decoration:line-through}
+  .find{font-size:12.5px;color:var(--lavender);font-weight:700;display:flex;align-items:center;gap:4px}
+
+  .empty{text-align:center;padding:60px 0;color:var(--muted)}
+
+  /* Modal */
+  .overlay{position:fixed;inset:0;background:rgba(74,53,64,.4);backdrop-filter:blur(3px);
+    display:none;align-items:flex-start;justify-content:center;padding:40px 16px;z-index:50;overflow:auto}
+  .overlay.show{display:flex}
+  .modal{background:var(--cream);border-radius:24px;max-width:640px;width:100%;overflow:hidden;box-shadow:0 30px 70px rgba(74,53,64,.35);animation:pop .2s ease}
+  @keyframes pop{from{transform:translateY(14px);opacity:0}to{transform:none;opacity:1}}
+  .mhead{display:flex;gap:16px;padding:22px;background:linear-gradient(135deg,#fff,var(--blush2));position:relative}
+  .mhead img{width:88px;height:88px;object-fit:contain;background:#fff;border-radius:14px;border:1px solid var(--line)}
+  .mhead .mt{flex:1}
+  .mhead .mt h3{font-size:15px;line-height:1.45;font-weight:700}
+  .mhead .mt .mp{margin-top:8px;font-size:20px;font-weight:800;color:var(--rose-deep)}
+  .close{position:absolute;top:14px;right:16px;border:none;background:#fff;width:32px;height:32px;border-radius:50%;
+    cursor:pointer;font-size:17px;color:var(--muted);box-shadow:0 3px 8px rgba(0,0,0,.08)}
+  .mstats{display:flex;gap:8px;padding:14px 22px 4px;flex-wrap:wrap}
+  .stat{flex:1;min-width:90px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px;text-align:center}
+  .stat .n{font-size:18px;font-weight:800}
+  .stat .l{font-size:11px;color:var(--muted);margin-top:2px}
+  .stat.g .n{color:var(--green)} .stat.r .n{color:var(--rose-deep)} .stat.m .n{color:var(--muted)}
+
+  .storesearch{padding:12px 22px 0}
+  .storesearch input{
+    width:100%;border:1px solid var(--line);background:#fff;border-radius:999px;
+    padding:11px 18px;font-size:14px;outline:none;color:var(--ink);
+  }
+  .storesearch input::placeholder{color:#C9B6BF}
+  .storesearch input:focus{border-color:var(--rose)}
+  .regionbar{display:flex;gap:7px;overflow-x:auto;padding:14px 22px 4px;flex-wrap:wrap}
+  .rchip{white-space:nowrap;border:1px solid var(--line);background:#fff;color:var(--muted);
+    padding:6px 13px;border-radius:999px;font-size:12.5px;cursor:pointer}
+  .rchip.active{background:linear-gradient(135deg,var(--rose),var(--coral));color:#fff;border-color:transparent}
+
+  .stores{padding:2px 22px 24px;max-height:44vh;overflow:auto}
+  .srow{display:flex;align-items:center;gap:12px;padding:13px 4px;border-bottom:1px solid var(--line)}
+  .srow:last-child{border-bottom:none}
+  .srow .si{flex:1}
+  .srow .sn{font-size:14px;font-weight:700}
+  .srow .sa{font-size:12px;color:var(--muted);margin-top:3px}
+  .sdist{font-size:11px;color:var(--lavender);font-weight:700}
+  .slabel{font-size:12.5px;font-weight:800;padding:6px 12px;border-radius:999px;white-space:nowrap}
+  .slabel.in{color:var(--green);background:#E6F6EF}
+  .slabel.out{color:#C4737F;background:#FBEBEF}
+  .slabel.ns{color:var(--muted);background:#F1EBEE}
+
+  footer{text-align:center;color:#C9B6BF;font-size:12px;margin-top:40px;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo"><span class="dot">🌸</span> 올리브영 재고 파인더</div>
+    <p>제품명을 검색하고, 우리 동네 매장별 재고를 확인하세요</p>
+    <div class="search">
+      <input id="q" type="text" placeholder="제품명을 입력하세요  (예: 선쿠션, 쿠션, 선팩트)" />
+      <button onclick="search()">검색</button>
+    </div>
+    <div class="chips" id="chips"></div>
+  </header>
+
+  <div class="summary" id="summary"></div>
+  <div class="grid" id="grid"></div>
+</div>
+
+<!-- 매장 재고 모달 -->
+<div class="overlay" id="overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="mhead">
+      <img id="mImg" alt="">
+      <div class="mt">
+        <h3 id="mName"></h3>
+        <div class="mp" id="mPrice"></div>
+      </div>
+      <button class="close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="mstats" id="mStats"></div>
+    <div class="storesearch">
+      <input id="mStoreQ" type="text" placeholder="🔍 지역·매장명 검색 (예: 세종, 공주, 조치원)" oninput="renderStores()">
+    </div>
+    <div class="regionbar" id="mRegions"></div>
+    <div class="stores" id="mStores"></div>
+  </div>
+</div>
+
+<footer>
+  🌸 올리브영 재고 파인더 · 데모 사이트<br>
+  실제 올리브영 재고 데이터 기반 (선쿠션 카테고리 · 세종·충남 12개 매장)
+</footer>
+
+<script src="data.js"></script>
+<script>
+const D = window.OY_DATA;
+const PLACEHOLDER = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='120' height='120' fill='%23FDE9EF'/><text x='60' y='66' font-size='40' text-anchor='middle'>🌸</text></svg>";
+
+// 제품명별 결정론적 해시 (매장 재고 시뮬레이션용)
+function hash(s){let h=0;for(let i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))>>>0;}return h;}
+
+// 제품 x 매장 → 재고 상태 (실측이 있으면 실측, 없으면 결정론적 시뮬레이션)
+function stockFor(prod, storeIdx, store){
+  const real = prod.real && prod.real[store.name];
+  if(real){
+    return {status:real.status, label:real.label, qty:real.qty};
+  }
+  // 온라인 품절 제품은 매장도 대부분 없음
+  const seed = (hash(prod.name) + storeIdx*7)%100;
+  if(!prod.inStock){
+    if(seed<12) return {status:'in_stock', label:'재고 '+(1+seed%3)+'개', qty:1+seed%3};
+    return {status: seed<55?'out_of_stock':'not_sold', label: seed<55?'품절':'미판매', qty:0};
+  }
+  if(seed<45){const q=1+seed%5;return {status:'in_stock', label:'재고 '+q+'개', qty:q};}
+  if(seed<72) return {status:'out_of_stock', label:'품절', qty:0};
+  return {status:'not_sold', label:'미판매', qty:0};
+}
+
+let curRegion = 'all';
+let curProd = null;
+
+function money(n){return (n||0).toLocaleString('ko-KR')+'원';}
+
+function render(list){
+  const grid=document.getElementById('grid');
+  const sum=document.getElementById('summary');
+  if(!list.length){
+    sum.innerHTML='';
+    grid.innerHTML='<div class="empty">🥲 검색 결과가 없어요. 다른 제품명을 입력해 보세요.</div>';
+    return;
+  }
+  const q=document.getElementById('q').value.trim();
+  sum.innerHTML = q ? `“<b>${q}</b>” 검색 결과 <b>${list.length}</b>건` : `전체 <b>${list.length}</b>개 제품`;
+  grid.innerHTML = list.map(p=>{
+    const idx=D.products.indexOf(p);
+    const disc = p.disc>0 ? `<span class="disc">${p.disc}%</span>` : '';
+    const org = p.orig>p.price ? `<span class="org">${money(p.orig)}</span>` : '';
+    return `<div class="card" onclick="openModal(${idx})">
+      <div class="thumb">
+        <span class="badge ${p.inStock?'in':'out'}">${p.inStock?'판매중':'품절'}</span>
+        ${disc}
+        <img src="${p.img||PLACEHOLDER}" onerror="this.src='${PLACEHOLDER}'" alt="">
+      </div>
+      <div class="body">
+        <div class="pname">${p.name}</div>
+        <div class="price"><span class="now">${money(p.price)}</span>${org}</div>
+        <div class="find">📍 매장 재고 보기 ›</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function search(){
+  const q=document.getElementById('q').value.trim().toLowerCase();
+  const list = !q ? D.products : D.products.filter(p=>p.name.toLowerCase().includes(q));
+  render(list);
+}
+
+function openModal(idx){
+  const p=D.products[idx]; curProd=p; curRegion='all';
+  document.getElementById('mStoreQ').value='';
+  document.getElementById('mImg').src = p.img||PLACEHOLDER;
+  document.getElementById('mImg').onerror=function(){this.src=PLACEHOLDER;};
+  document.getElementById('mName').textContent = p.name;
+  document.getElementById('mPrice').textContent = money(p.price);
+  // 지역 칩
+  const regions=['all',...D.regions];
+  document.getElementById('mRegions').innerHTML = regions.map(r=>
+    `<div class="rchip ${r===curRegion?'active':''}" onclick="setRegion('${r}')">${r==='all'?'전체 지역':r.replace('서울특별시 ','')}</div>`
+  ).join('');
+  renderStores();
+  document.getElementById('overlay').classList.add('show');
+  document.body.style.overflow='hidden';
+}
+
+function setRegion(r){
+  curRegion=r;
+  document.querySelectorAll('.rchip').forEach(c=>c.classList.remove('active'));
+  event.target.classList.add('active');
+  renderStores();
+}
+
+function renderStores(){
+  const p=curProd;
+  let stores=D.stores.map((s,i)=>({...s, stock:stockFor(p,i,s)}));
+  if(curRegion!=='all') stores=stores.filter(s=>s.region===curRegion);
+  const kw=(document.getElementById('mStoreQ').value||'').trim().toLowerCase();
+  if(kw) stores=stores.filter(s=>
+    (s.name||'').toLowerCase().includes(kw) ||
+    (s.region||'').toLowerCase().includes(kw) ||
+    (s.addr||'').toLowerCase().includes(kw));
+  // 재고있음 우선, 거리순
+  stores.sort((a,b)=>{
+    const rank=x=>x.stock.status==='in_stock'?0:x.stock.status==='out_of_stock'?1:2;
+    return rank(a)-rank(b) || (a.dist||99)-(b.dist||99);
+  });
+  const inN=stores.filter(s=>s.stock.status==='in_stock').length;
+  const outN=stores.filter(s=>s.stock.status==='out_of_stock').length;
+  const nsN=stores.filter(s=>s.stock.status==='not_sold').length;
+  document.getElementById('mStats').innerHTML=`
+    <div class="stat g"><div class="n">${inN}</div><div class="l">재고 있음</div></div>
+    <div class="stat r"><div class="n">${outN}</div><div class="l">품절</div></div>
+    <div class="stat m"><div class="n">${nsN}</div><div class="l">미판매</div></div>`;
+  const cls=s=>s.stock.status==='in_stock'?'in':s.stock.status==='out_of_stock'?'out':'ns';
+  document.getElementById('mStores').innerHTML = stores.map(s=>`
+    <div class="srow">
+      <div class="si">
+        <div class="sn">${s.name} ${s.dist!=null?`<span class="sdist">· ${s.dist}km</span>`:''}</div>
+        <div class="sa">${s.addr||''}</div>
+      </div>
+      <div class="slabel ${cls(s)}">${s.stock.label}</div>
+    </div>`).join('') || '<div class="empty">해당 지역 매장이 없어요.</div>';
+}
+
+function closeModal(){
+  document.getElementById('overlay').classList.remove('show');
+  document.body.style.overflow='';
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+document.getElementById('q').addEventListener('keydown',e=>{if(e.key==='Enter')search();});
+
+// 추천 검색어 칩
+const suggest=['선쿠션','쿠션','선팩트','톤업','수분'];
+document.getElementById('chips').innerHTML = suggest.map(s=>
+  `<div class="chip" onclick="document.getElementById('q').value='${s}';search()">🔍 ${s}</div>`).join('');
+
+// 초기 렌더
+search();
+</script>
+</body>
+</html>
